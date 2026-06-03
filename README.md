@@ -55,23 +55,32 @@ curl http://127.0.0.1:6333/healthz             # → "healthz check passed"
 curl http://127.0.0.1:6333/collections         # → {"result":{"collections":[]}, ...}
 ```
 
-## 5. Smoke test: pure-Qdrant adapter against the server
+## 5. Set up the test environment (one-time)
 
-Requires mmore. The `[qdrant]` extra alone is not enough: this test goes
-through `mmore.index.indexer`, which eagerly imports mmore's LLM provider
-stack (`mmore.rag.llm`), so the LangChain provider packages must also be
-installed:
+The smoke tests need [mmore](https://github.com/swiss-ai/mmore) plus several
+deps the `[qdrant]` extra does not pull on its own (the indexer eagerly imports
+mmore's LangChain provider stack; the ColPali test needs
+`colpali-engine`/`pymupdf`/`pyarrow`). One script installs everything into a
+venv:
 
 ```bash
-pip install -e /path/to/mmore[qdrant]
-pip install langchain-anthropic langchain-cohere langchain-huggingface \
-            langchain-mistralai langchain-openai
+scripts/setup_test_env.sh /path/to/mmore        # creates .venv, installs all deps
+source .venv/bin/activate
+export MMORE_SRC=/path/to/mmore/src
+export PYTHONPATH=$MMORE_SRC
+```
+
+After this, the three test commands below run directly.
+
+## 6. Smoke test: pure-Qdrant adapter against the server
+
+```bash
 python tests/test_qdrant_server.py
 ```
 
 Indexes 5 toy documents, runs 3 retrievals, prints top-1 for each.
 
-## 6. Smoke test: ColPali multi-vector / MaxSim correctness
+## 7. Smoke test: ColPali multi-vector / MaxSim correctness
 
 ```bash
 python tests/test_qdrant_colpali.py
@@ -79,33 +88,19 @@ python tests/test_qdrant_colpali.py
 
 Synthetic 5-page corpus, validates `QdrantColpaliManager`'s late-interaction MaxSim against the expected top-1 ranking.
 
-## 7. Smoke test: real-PDF retrieval
+## 8. Smoke test: real-PDF retrieval
 
-Unlike tests 5–6, this one needs a **GPU** (it loads `vidore/colpali-v1.3`),
-extra deps beyond `[qdrant]`, and a populated collection — the test only
-*queries* `colpali_real_pdf`, it does not build it. Full sequence:
+Needs a **GPU** (loads `vidore/colpali-v1.3`). Self-contained: if the
+`colpali_real_pdf` collection is empty it first builds it from mmore's bundled
+sample PDFs (COVID/LLaVA/calendar), then queries — so just run:
 
 ```bash
-# extra deps for the ColPali process/index/query path
-pip install colpali-engine pymupdf pyarrow
-
-# 1. encode the sample PDFs to per-page multi-vectors (GPU)
-python -m mmore.colpali.run_process \
-    --config-file /path/to/mmore/examples/colpali/config_process.yml
-
-# 2. index the embeddings into the running Qdrant server.
-#    Use an index config with backend: qdrant and
-#    db_path: http://127.0.0.1:6333, collection_name: colpali_real_pdf
-python -m mmore.colpali.run_index --config-file config_index_qdrant.yml
-
-# 3. query
 python tests/test_colpali_real.py
 ```
 
-Three real PDFs (COVID/LLaVA/calendar) → ColPali index → query
-retrieval. Slowest (~3 min) but exercises the full path. COVID/LLaVA
-queries hit their source PDF strongly; the calendar query is a weak match
-(that PDF is image-heavy with little matching text).
+First run is slow (model download + corpus build); later runs reuse the
+collection. COVID/LLaVA queries hit their source PDF strongly; the calendar
+query is a weak match (that PDF is image-heavy with little matching text).
 
 ## File layout
 
@@ -114,11 +109,12 @@ qdrant-cscs/
 ├── README.md                        — this file
 ├── scripts/
 │   ├── build_qdrant_alps.sh         — compile the Qdrant binary
-│   └── start_qdrant_server.sbatch   — Slurm wrapper to launch it
+│   ├── start_qdrant_server.sbatch   — Slurm wrapper to launch it
+│   └── setup_test_env.sh            — venv + all test deps (one-time)
 └── tests/
     ├── test_qdrant_server.py        — pure-Qdrant smoke (needs mmore)
     ├── test_qdrant_colpali.py       — ColPali MaxSim correctness (needs mmore)
-    └── test_colpali_real.py         — real-PDF ColPali retrieval (needs mmore)
+    └── test_colpali_real.py         — real-PDF ColPali retrieval; auto-builds its corpus (GPU)
 ```
 
 ## Notes
