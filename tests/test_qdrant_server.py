@@ -89,10 +89,9 @@ def main() -> None:
         print(f"\n  Q: {q}\n  A: {top}...")
 
     print("\n[3/3] Index metadata round-trip...")
-    dense = retriever.client.describe_index(COLLECTION, "dense_embedding")
-    sparse = retriever.client.describe_index(COLLECTION, "sparse_embedding")
-    print(f"      dense  model:  {dense.get('model_name')}")
-    print(f"      sparse model:  {sparse.get('model_name')}")
+    models = retriever.backend.describe_models(COLLECTION)
+    print(f"      dense  model:  {models['dense'].get('model_name')}")
+    print(f"      sparse model:  {models['sparse'].get('model_name')}")
 
     print("\nServer-mode smoke test PASSED.\n")
 

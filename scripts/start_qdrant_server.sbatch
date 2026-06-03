@@ -14,7 +14,10 @@
 
 set -euo pipefail
 
-REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# Under sbatch the script is copied to a spool dir, so BASH_SOURCE no longer
+# points into the repo. Prefer SLURM_SUBMIT_DIR (the dir sbatch was run from);
+# fall back to BASH_SOURCE for direct ./scripts/... execution.
+REPO="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SCRATCH=${SCRATCH:-/iopsstor/scratch/cscs/$USER}
 QDRANT_BIN=${QDRANT_BIN:-$REPO/qdrant-src/target/release/qdrant}
 QDRANT_DATA=${QDRANT_DATA:-$SCRATCH/qdrant_server_${SLURM_JOB_ID:-local}}

@@ -20,7 +20,7 @@ set -euo pipefail
 
 QDRANT_VERSION="${1:-v1.17.1}"
 PROTOC_VERSION="34.1"
-BENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 JOBS="${JOBS:-64}"
 
 echo "==> Build target: Qdrant ${QDRANT_VERSION}, $(uname -m), pagesize=$(getconf PAGESIZE)"
